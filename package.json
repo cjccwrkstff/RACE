@@ -1,0 +1,17 @@
+{
+  "name": "RACE2025_v1.0",
+  "version": "1.0.0",
+  "description": "Rates And Codes Engine for Billers — CJCCRatesAndCodesEngine2025",
+  "main": "main.js",
+  "author": "CJCC",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-packager . RACE2025_v1.0 --platform=win32 --arch=x64 --icon=icon.png --out=build --overwrite --asar --prune=true --ignore=node_modules/.cache"
+  },
+  "devDependencies": {
+    "electron": "^32.1.2",
+    "electron-packager": "^17.1.1"
+  }
+}

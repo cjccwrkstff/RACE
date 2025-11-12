@@ -1,0 +1,74 @@
+RACE2025_v1.0 — Portable Build Instructions
+--------------------------------------------
+
+Thank you for building and testing the R.A.C.E 2025 desktop app.
+This app runs completely offline and compiles into a portable Windows .exe file.
+
+===========================================================
+  1. INSTALL DEPENDENCIES
+===========================================================
+Make sure you have Node.js (LTS) installed.
+Then open PowerShell or CMD in this folder and run:
+
+    npm install
+
+===========================================================
+  2. RUN APP IN DEV MODE
+===========================================================
+To test locally before packaging:
+    npm start
+
+This will open the Electron window starting at login.html.
+
+===========================================================
+  3. BUILD PORTABLE EXECUTABLE
+===========================================================
+To build the Windows portable .exe:
+
+    npm run dist
+
+After a few moments, look inside the /dist folder.
+You’ll find your portable executable:
+
+    dist/RACE2025_v1.0.exe
+
+This file is fully standalone and runs without installation.
+
+===========================================================
+  4. UPDATE REQUIREMENTS DATA FROM EXCEL
+===========================================================
+Use the included requirements_converter.py script to convert
+a spreadsheet (like REQUIREMENTS1.xlsx) into requirements.json.
+
+Command:
+    python requirements_converter.py
+
+===========================================================
+  5. OPTIONAL — GITHUB ACTIONS AUTOMATION
+===========================================================
+To automate builds on GitHub:
+- Create a repository and push all files.
+- Add a workflow file: .github/workflows/build-windows.yml
+  (example template provided in chat documentation)
+- The workflow runs "npm install" and "npm run dist" on Windows
+  and uploads the .exe as an artifact or release.
+
+===========================================================
+  6. FILE STRUCTURE
+===========================================================
+RACE2025/
+├── main.js
+├── preload.js
+├── package.json
+├── build/
+│   └── icon.ico
+├── login.html
+├── home.html
+├── index.html
+├── manifest.json
+├── service-worker.js
+├── database.json
+├── requirements.json
+├── requirements_converter.py
+├── requirements_template.xlsx
+└── instructions.txt
