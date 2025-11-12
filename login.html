@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R.A.C.E 2025 — Login</title>
+<style>
+  :root {
+    --bg-color: #0d1117;
+    --text-color: #c9d1d9;
+    --card-bg: #161b22;
+    --border-color: #30363d;
+    --accent-color: #58a6ff;
+    --muted-color: #8b949e;
+  }
+  body.light {
+    --bg-color: #f5f6fa;
+    --text-color: #2f3640;
+    --card-bg: #ffffff;
+    --border-color: #dcdde1;
+    --accent-color: #273c75;
+    --muted-color: #555;
+  }
+  body {
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: "Segoe UI", sans-serif;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: background .3s, color .3s;
+  }
+  .login-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 35px 40px;
+    width: 320px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    text-align: center;
+    animation: fadeIn 1s ease forwards;
+  }
+  @keyframes fadeIn { from {opacity: 0; transform: translateY(20px);} to {opacity: 1; transform: translateY(0);} }
+  h1 { color: var(--accent-color); margin-bottom: 10px; }
+  p { color: var(--muted-color); margin-bottom: 25px; }
+  input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 15px;
+    box-sizing: border-box;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  #themeToggle, #exitBtn {
+    position: absolute;
+    top: 15px;
+    font-size: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--accent-color);
+  }
+  #themeToggle { right: 50px; }
+  #exitBtn { right: 15px; }
+  #errorMsg {
+    color: #ff6b6b;
+    font-size: 14px;
+    margin-top: 10px;
+  }
+  footer {
+    position: fixed;
+    bottom: 8px;
+    font-size: 12px;
+    color: var(--muted-color);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <button id="themeToggle" title="Toggle Theme">🌙</button>
+  <button id="exitBtn" title="Exit App">❌</button>
+
+  <div class="login-box">
+    <h1>R.A.C.E 2025</h1>
+    <p>Rates and Case Engine — Login</p>
+    <input type="text" id="username" placeholder="Username" autofocus>
+    <input type="password" id="password" placeholder="Password">
+    <button id="loginBtn">Login</button>
+    <div id="errorMsg"></div>
+  </div>
+
+  <footer>© CJCCRatesAndCodesEngine2025. All Rights Reserved.</footer>
+
+<script>
+const loginBtn = document.getElementById("loginBtn");
+const errorMsg = document.getElementById("errorMsg");
+const userField = document.getElementById("username");
+const passField = document.getElementById("password");
+
+/* ---- Theme toggle ---- */
+const themeBtn = document.getElementById("themeToggle");
+function applyTheme(mode){
+  if(mode === "light"){
+    document.body.classList.add("light");
+    themeBtn.textContent = "🌙"; // night icon for switching **to** dark
+  }else{
+    document.body.classList.remove("light");
+    themeBtn.textContent = "☀️"; // day icon for switching **to** light
+  }
+  localStorage.setItem("race_theme", mode);
+}
+// On load, set theme and icon according to saved preference
+const currentTheme = localStorage.getItem("race_theme") || "dark";
+applyTheme(currentTheme);
+themeBtn.addEventListener("click", ()=>{
+  const nextMode = document.body.classList.contains("light") ? "dark" : "light";
+  applyTheme(nextMode);
+});
+
+/* ---- Exit button ---- */
+document.getElementById("exitBtn").addEventListener("click", ()=>{
+  if (typeof window.require !== "undefined") {
+    const { ipcRenderer } = require("electron");
+    ipcRenderer.send("app-close");
+  } else {
+    window.close();
+  }
+});
+
+/* ---- Login logic ---- */
+function checkLogin(){
+  const u = userField.value.trim().toLowerCase();
+  const p = passField.value.trim();
+  if(u==="biller" && p==="00"){
+    window.location.href = "home.html";
+  } else if(u==="admin" && p==="11"){
+    window.location.href = "admin.html";
+  } else {
+    errorMsg.textContent = "Invalid username or password.";
+  }
+}
+
+loginBtn.addEventListener("click", checkLogin);
+document.addEventListener("keypress", e=>{
+  if(e.key==="Enter") checkLogin();
+});
+</script>
+</body>
+</html>

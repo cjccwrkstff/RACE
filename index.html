@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rates and Codes Engine — PhilHealth Case Rate Search</title>
+
+<link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js');
+  }
+</script>
+
+<style>
+  :root{
+    --bg-color:#0d1117;
+    --text-color:#c9d1d9;
+    --card-bg:#161b22;
+    --border-color:#30363d;
+    --accent-color:#58a6ff;
+    --muted-color:#8b949e;
+  }
+  body.light{
+    --bg-color:#f5f6fa;
+    --text-color:#2f3640;
+    --card-bg:#ffffff;
+    --border-color:#dcdde1;
+    --accent-color:#273c75;
+    --muted-color:#555;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:"Segoe UI",Arial,Helvetica,sans-serif;
+    background:var(--bg-color);
+    color:var(--text-color);
+    transition:background .25s,color .25s;
+    opacity:0;
+    animation:fadeIn 1s ease forwards;
+  }
+  @keyframes fadeIn{to{opacity:1}}
+
+  header{
+    padding:40px 20px 25px 20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  h1{margin:0;margin-top:18px;font-size:28px;color:var(--accent-color);text-align:center;}
+  .tagline{margin:8px 0 0 0;font-size:16px;color:var(--muted-color);text-align:center;}
+  .controls{position:absolute;right:18px;top:14px;display:flex;gap:10px;align-items:center;}
+  button.icon{background:none;border:0;color:var(--accent-color);font-size:20px;cursor:pointer;padding:6px;border-radius:6px;}
+  button.icon:hover{transform:scale(1.12)}
+  #colorPicker{width:30px;height:30px;border-radius:6px;border:2px solid var(--border-color);cursor:pointer;background:var(--accent-color);}
+  #homeBtn{position:absolute;left:18px;top:14px;background:none;border:0;font-size:22px;color:var(--accent-color);cursor:pointer;padding:6px;border-radius:6px;}
+  #homeBtn:hover{transform:scale(1.12)}
+
+  main{padding:18px 20px 80px 20px;max-width:1100px;margin:0 auto}
+  #searchBox{display:block;width:100%;max-width:820px;margin:35px auto 0 auto;padding:15px 18px;font-size:18px;border-radius:12px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-color);outline:none;box-sizing:border-box;transition:box-shadow .18s,border-color .18s;}
+  #searchBox:focus{border-color:var(--accent-color);box-shadow:0 0 10px rgba(0,0,0,0.3);}
+  #results{margin-top:12px}
+  .result{background:var(--card-bg);border:1px solid var(--border-color);padding:12px;border-radius:10px;margin:10px auto;max-width:760px}
+  .code{font-weight:700;color:var(--accent-color);font-size:15px}
+  .description{margin:6px 0;color:var(--text-color)}
+  .fees,.source{font-size:13px;color:var(--muted-color)}
+
+  /* Requirements Table */
+  table.requirements {width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}
+  table.requirements th {text-align:left;background:var(--card-bg);color:var(--accent-color);padding:4px 8px;border:1px solid var(--border-color);}
+  table.requirements td {padding:4px 8px;border:1px solid var(--border-color);color:var(--text-color);}
+
+  footer{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;text-align:center;color:var(--muted-color);background:linear-gradient(0deg, rgba(0,0,0,0.04), transparent);}
+  ::selection{background:var(--accent-color);color:var(--bg-color);}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--accent-color);border-radius:8px}
+
+  /* Fade overlay */
+  .fade-overlay{position:fixed;inset:0;background:var(--bg-color);opacity:0;pointer-events:none;transition:opacity .8s ease;z-index:9999;}
+  .fade-overlay.active{opacity:1;pointer-events:all;}
+</style>
+</head>
+
+<body>
+<header>
+  <button id="homeBtn" title="Go to Home">🏠</button>
+  <h1>Rates and Codes Engine</h1>
+  <p class="tagline">Search by ICD code, RVS code, or medical case description</p>
+  <div class="controls">
+    <button id="calcShortcut" class="icon" title="Calculator (Date Calculator)">🧮</button>
+    <input id="colorPicker" type="color" title="Change accent color" />
+    <button id="themeToggle" class="icon" title="Toggle theme">🌙</button>
+  </div>
+</header>
+
+<main>
+  <input id="searchBox" type="text" placeholder="Type here to search (e.g., J18.92, 11000, Dengue)" />
+  <div id="results"></div>
+</main>
+
+<footer>© CJCCRatesAndCodesEngine2025. All Rights Reserved.</footer>
+
+<div class="fade-overlay" id="fadeOverlay"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", ()=>{
+
+/* ---------- Load JSON Data ---------- */
+let data=[],requirements=[];
+Promise.all([
+  fetch("database.json").then(r=>r.ok?r.json():[]),
+  fetch("requirements.json").then(r=>r.ok?r.json():[])
+]).then(([caseData,reqData])=>{
+  data=caseData; requirements=reqData;
+});
+
+/* ---------- Search ---------- */
+const box=document.getElementById("searchBox");
+const results=document.getElementById("results");
+
+box.addEventListener("input",()=>{
+  const q=box.value.trim().toLowerCase();
+  results.innerHTML="";
+  if(!q)return;
+  const found=data.filter(i=>(i.code||"").toLowerCase().includes(q)||(i.description||"").toLowerCase().includes(q));
+  if(!found.length){
+    results.innerHTML='<p style="text-align:center;color:var(--muted-color)">No results found.</p>';
+    return;
+  }
+
+  found.slice(0,100).forEach(i=>{
+    // ✅ Use r.Codes instead of r.Code
+    const req=requirements.find(r=>(r.Codes||"").toString().toLowerCase()===(i.code||"").toString().toLowerCase());
+    const el=document.createElement("div");
+    el.className="result";
+
+    // ✅ Check or Cross helper
+    const mark=(v)=>v&&v.toString().trim()!==""&&v!=="–"
+      ?"<span style='color:limegreen;font-weight:bold'>✔</span>"
+      :"<span style='color:crimson;font-weight:bold'>✖</span>";
+
+    el.innerHTML=`
+      <div class="code">${i.code||""}</div>
+      <div class="description">${i.description||""}</div>
+      <div class="fees">Case Rate: ${i.rate||""} | Facility: ${i.facility||""} | Professional: ${i.professional||""}</div>
+      <div class="source">${i.source||""}</div>
+      ${req?`
+        <div class="requirements-section">
+          <h4 style="color:var(--accent-color);margin-top:10px;">Requirements</h4>
+          <table class="requirements">
+            <tr><th>Reminder</th><td>${mark(req["REMINDER/REQUIREMENTS"])}</td></tr>
+            <tr><th>CF3</th><td>${mark(req["CF3"])}</td></tr>
+            <tr><th>CF4</th><td>${mark(req["CF4"])}</td></tr>
+            <tr><th>OR TECH</th><td>${mark(req["OR TECH"])}</td></tr>
+            <tr><th>CAB/DS</th><td>${mark(req["CAB/DS"])}</td></tr>
+            <tr><th>COMPLETE LAB RESULTS</th><td>${mark(req["COMPLETE LAB RESULTS"])}</td></tr>
+            <tr><th>XRAY</th><td>${mark(req["XRAY"])}</td></tr>
+            <tr><th>CT SCAN</th><td>${mark(req["CT SCAN"])}</td></tr>
+          </table>
+        </div>`:""}
+    `;
+    results.appendChild(el);
+  });
+});
+
+/* ---------- Theme & Accent ---------- */
+const themeBtn=document.getElementById("themeToggle");
+const colorPicker=document.getElementById("colorPicker");
+function applyTheme(t){document.body.classList.toggle("light",t==="light");localStorage.setItem("cjcc_theme",t);themeBtn.textContent=t==="light"?"🌙":"☀️";}
+function applyAccent(c){document.documentElement.style.setProperty("--accent-color",c);colorPicker.value=c;colorPicker.style.background=c;localStorage.setItem("cjcc_accent",c);}
+applyTheme(localStorage.getItem("cjcc_theme")||"dark");
+applyAccent(localStorage.getItem("cjcc_accent")||"#58a6ff");
+themeBtn.addEventListener("click",()=>applyTheme(document.body.classList.contains("light")?"dark":"light"));
+colorPicker.addEventListener("input",e=>applyAccent(e.target.value));
+
+/* ---------- Home Fade ---------- */
+const fade=document.getElementById("fadeOverlay");
+document.getElementById("homeBtn").addEventListener("click",e=>{
+  e.preventDefault();
+  fade.classList.add("active");
+  setTimeout(()=>{window.location.href="home.html";},700);
+});
+
+/* ---------- Calculator Shortcut ---------- */
+const calcShortcut=document.getElementById("calcShortcut");
+// When clicking the shortcut button, open the external calculator link in a new tab
+calcShortcut.addEventListener("click",()=>{
+  window.open("https://www.calculator.net/date-calculator.html","_blank");
+});
+// Keyboard shortcut: Alt+Shift+C to open calculator
+document.addEventListener("keydown",e=>{
+  // Use Alt+Shift+C to trigger the link (case-insensitive)
+  if((e.altKey && e.shiftKey && (e.key==="c"||e.key==="C"))){
+    e.preventDefault();
+    window.open("https://www.calculator.net/date-calculator.html","_blank");
+  }
+});
+
+});
+</script>
+</body>
+</html>

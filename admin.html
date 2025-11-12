@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R.A.C.E 2025 — Admin Panel</title>
+
+<style>
+:root {
+  --bg-color:#0d1117;--text-color:#c9d1d9;--card-bg:#161b22;
+  --border-color:#30363d;--accent-color:#58a6ff;--muted-color:#8b949e;
+}
+body {margin:0;font-family:"Segoe UI",sans-serif;background:var(--bg-color);color:var(--text-color);}
+header {text-align:center;padding:30px;}
+h1 {color:var(--accent-color);margin:0;font-size:30px;}
+main {max-width:900px;margin:0 auto;padding:20px;}
+section {background:var(--card-bg);padding:20px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:30px;}
+button {
+  background:var(--accent-color);color:var(--bg-color);border:none;padding:10px 16px;
+  border-radius:8px;cursor:pointer;transition:transform .15s;
+}
+button:hover {transform:scale(1.05);}
+.file-list {width:100%;border-collapse:collapse;margin-top:15px;}
+.file-list th, .file-list td {
+  border:1px solid var(--border-color);padding:8px;font-size:14px;color:var(--text-color);
+}
+.file-list th {background:var(--card-bg);color:var(--accent-color);}
+footer {text-align:center;padding:15px;color:var(--muted-color);font-size:13px;}
+input.renameInput {
+  background:transparent;border:1px solid var(--border-color);color:var(--text-color);
+  padding:4px 6px;border-radius:6px;
+}
+.status-grid {display:flex;gap:20px;flex-wrap:wrap;}
+.status-box {
+  flex:1;min-width:250px;background:var(--card-bg);border:1px solid var(--border-color);
+  border-radius:10px;padding:12px;text-align:center;
+}
+.status-box h3 {margin:0;color:var(--accent-color);}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>R.A.C.E 2025 — Admin Panel</h1>
+  <p style="color:var(--muted-color)">Manage documents, database, and case requirements</p>
+</header>
+
+<main>
+
+<!-- Upload Documents -->
+<section>
+  <h2 style="color:var(--accent-color)">📂 Upload Document</h2>
+  <p style="color:var(--muted-color);font-size:14px;">Upload a PDF, Excel, Word, or image to make it available in the Home viewer.</p>
+  <button id="uploadBtn">Upload New File</button>
+  <div id="uploadStatus" style="margin-top:10px;color:var(--muted-color);font-size:14px;"></div>
+</section>
+
+<!-- Manage Uploaded Files -->
+<section>
+  <h2 style="color:var(--accent-color)">🗂 Manage Uploaded Files</h2>
+  <table class="file-list">
+    <thead><tr><th>Filename</th><th>Last Modified</th><th>Actions</th></tr></thead>
+    <tbody id="fileTableBody">
+      <tr><td colspan="3" style="text-align:center;color:var(--muted-color);">Loading files...</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Manage Data Files -->
+<section>
+  <h2 style="color:var(--accent-color)">🧩 Manage Database Files</h2>
+  <div class="status-grid">
+    <div class="status-box">
+      <h3>database.json</h3>
+      <p id="dbStatus">Checking...</p>
+      <button id="uploadDBBtn">Upload New database.json</button>
+    </div>
+    <div class="status-box">
+      <h3>requirements.json</h3>
+      <p id="reqStatus">Checking...</p>
+      <button id="uploadReqBtn">Upload New requirements.json</button>
+    </div>
+  </div>
+</section>
+
+<button onclick="window.location.href='login.html'" style="display:block;margin:0 auto;">⬅ Log Out</button>
+
+</main>
+<footer>© CJCCRatesAndCodesEngine2025. All Rights Reserved.</footer>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+// Utility to show a status message (success or error) for a short time
+function showUploadStatus(msg, ok = true) {
+  const status = document.getElementById('uploadStatus');
+  status.style.color = ok ? 'var(--muted-color)' : '#f33';
+  status.innerHTML = msg;
+  setTimeout(() => { status.textContent = ''; }, 2500);
+}
+
+/* Upload document */
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+  const result = await ipcRenderer.invoke('select-file');
+  if (!result) { showUploadStatus('❌ Upload canceled.', false); return; }
+  showUploadStatus(`✅ Uploaded: <strong>${result.name}</strong>`);
+  loadFiles();
+});
+
+/* Upload JSON files */
+document.getElementById('uploadDBBtn').addEventListener('click', async () => {
+  const result = await ipcRenderer.invoke('upload-json', 'database');
+  if (result) {
+    showUploadStatus("✅ database.json uploaded.");
+    updateStatus();
+  } else {
+    showUploadStatus("❌ Upload canceled for database.json.", false);
+  }
+});
+document.getElementById('uploadReqBtn').addEventListener('click', async () => {
+  const result = await ipcRenderer.invoke('upload-json', 'requirements');
+  if (result) {
+    showUploadStatus("✅ requirements.json uploaded.");
+    updateStatus();
+  } else {
+    showUploadStatus("❌ Upload canceled for requirements.json.", false);
+  }
+});
+
+/* Load file list */
+async function loadFiles() {
+  const files = await ipcRenderer.invoke('list-files');
+  const tbody = document.getElementById('fileTableBody');
+  tbody.innerHTML = '';
+  if (!files.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted-color);">No uploaded files yet.</td></tr>';
+    return;
+  }
+  files.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="renameInput" type="text" value="${f.name}" data-old="${f.name}"></td>
+      <td>${new Date(f.time).toLocaleString()}</td>
+      <td>
+        <button class="saveBtn">💾</button>
+        <button class="deleteBtn" style="background:#c23;color:white;">🗑</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll('.saveBtn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const row = e.target.closest('tr');
+      const input = row.querySelector('.renameInput');
+      const oldName = input.dataset.old;
+      const newName = input.value.trim();
+      if (newName && newName !== oldName) {
+        const ok = await ipcRenderer.invoke('rename-file', oldName, newName);
+        if (ok) {
+          showUploadStatus(`✅ Renamed to <strong>${newName}</strong>`);
+          loadFiles();
+        } else {
+          showUploadStatus("❌ Rename failed.", false);
+        }
+      }
+    });
+  });
+  document.querySelectorAll('.deleteBtn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const row = e.target.closest('tr');
+      const name = row.querySelector('.renameInput').value.trim();
+      if (confirm(`Delete "${name}"?`)) {
+        const ok = await ipcRenderer.invoke('delete-file', name);
+        if (ok) {
+          showUploadStatus(`✅ Deleted: <strong>${name}</strong>`);
+          loadFiles();
+        } else {
+          showUploadStatus("❌ Deletion failed.", false);
+        }
+      }
+    });
+  });
+}
+
+/* Update database and requirements file status */
+async function updateStatus() {
+  const status = await ipcRenderer.invoke('get-file-status');
+  document.getElementById('dbStatus').textContent = status.database
+    ? `Last updated: ${new Date(status.database).toLocaleString()}`
+    : 'Missing file.';
+  document.getElementById('reqStatus').textContent = status.requirements
+    ? `Last updated: ${new Date(status.requirements).toLocaleString()}`
+    : 'Missing file.';
+}
+
+loadFiles();
+updateStatus();
+</script>
+</body>
+</html>
