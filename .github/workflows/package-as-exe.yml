@@ -12,18 +12,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
+      - name: Ensure package.json exists
+        run: |
+          if (!(Test-Path -Path "package.json")) {
+            npm init -y
+          }
+        shell: pwsh
 
       - name: Install dependencies
         run: |
           npm install --save-dev electron electron-packager
 
-      - name: Create Electron entry file for login.html
+      - name: Ensure login.html exists
         run: |
-          Set-Content -Path main.js -Value "
+          if (!(Test-Path -Path "login.html")) {
+            Write-Error "login.html not found"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Generate Electron entry file for login.html
+        run: |
+          "@
           const { app, BrowserWindow } = require('electron');
           function createWindow () {
             const win = new BrowserWindow({
@@ -37,7 +47,7 @@ jobs:
             win.loadFile('login.html');
           }
           app.whenReady().then(createWindow);
-          "
+          @" | Out-File -Encoding utf8 main.js
         shell: pwsh
 
       - name: Set Electron main in package.json
@@ -51,7 +61,7 @@ jobs:
         run: npx electron-packager . RACE-app --platform=win32 --arch=x64 --overwrite
 
       - name: Upload .exe as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: race-app-windows-exe
           path: RACE-app-win32-x64/
