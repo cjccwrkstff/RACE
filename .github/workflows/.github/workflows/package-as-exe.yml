@@ -1,0 +1,57 @@
+name: Build Electron .exe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install --save-dev electron electron-packager
+
+      - name: Create Electron entry file for login.html
+        run: |
+          Set-Content -Path main.js -Value "
+          const { app, BrowserWindow } = require('electron');
+          function createWindow () {
+            const win = new BrowserWindow({
+              width: 1024,
+              height: 768,
+              webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false
+              }
+            });
+            win.loadFile('login.html');
+          }
+          app.whenReady().then(createWindow);
+          "
+        shell: pwsh
+
+      - name: Set Electron main in package.json
+        run: |
+          $content = Get-Content package.json | Out-String | ConvertFrom-Json
+          $content.main = 'main.js'
+          $content | ConvertTo-Json -Depth 10 | Set-Content package.json
+        shell: pwsh
+
+      - name: Build Windows .exe with Electron Packager
+        run: npx electron-packager . RACE-app --platform=win32 --arch=x64 --overwrite
+
+      - name: Upload .exe as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: race-app-windows-exe
+          path: RACE-app-win32-x64/
